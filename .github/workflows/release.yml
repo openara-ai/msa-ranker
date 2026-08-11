@@ -1,0 +1,218 @@
+name: Release
+
+# Build the pure-Python wheel + sdist and publish them as GitHub Release assets.
+# media-search-agent pins the wheel asset URL produced here (see ADR-010 and
+# MSA's requirements-api.txt):
+#   https://github.com/openara-ai/msa-ranker/releases/download/vX.Y.Z/msa_ranker-X.Y.Z-py3-none-any.whl
+#
+# Flow (see internal/docs/runbooks/PUBLIC_MIRROR_PLAN.md):
+#   tag vX.Y.Z on private main -> mirror-staging (with --tag) -> promote-to-public
+#   (with tag). The tag landing on the PUBLIC repo fires this workflow, which builds
+#   and publishes the release there. On the private/staging repos it builds only
+#   (validation) and never publishes.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to (re)build/publish, e.g. v0.1.0'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build + validate wheel/sdist
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      prerelease: ${{ steps.resolve.outputs.prerelease }}
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          # Full history + tags so the on-main ancestry check can resolve merge-base
+          # and setuptools_scm can derive the version from the tag.
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify the tag is on main (reject release tags off main)
+        # The `v*` push filter only matches the ref NAME, not where it points. A
+        # release-shaped tag pushed at an unmerged/unreviewed commit would otherwise
+        # be built and published. Require the tagged commit to be on origin/main.
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --quiet origin main
+          if git merge-base --is-ancestor HEAD origin/main; then
+            echo "OK: tagged commit $(git rev-parse --short HEAD) is on origin/main."
+          else
+            echo "ERROR: the tagged commit is NOT an ancestor of origin/main." >&2
+            echo "Release tags must point at a reviewed commit on main." >&2
+            exit 1
+          fi
+
+      - name: Resolve + normalize the release version
+        id: resolve
+        env:
+          REF_TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip packaging >/dev/null
+          raw="${REF_TAG#v}"
+          # PEP 440 normalization so e.g. v0.1.0-rc1 and v0.1.0rc1 both -> 0.1.0rc1,
+          # and prerelease status comes from the parsed version (not a `-` test).
+          version=$(python -c "import sys; from packaging.version import Version; print(str(Version(sys.argv[1])))" "$raw")
+          prerelease=$(python -c "import sys; from packaging.version import Version; print('true' if Version(sys.argv[1]).is_prerelease else 'false')" "$raw")
+          {
+            echo "tag=$REF_TAG"
+            echo "version=$version"
+            echo "prerelease=$prerelease"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Tag $REF_TAG -> version $version (prerelease=$prerelease)"
+
+      - name: Build wheel + sdist
+        run: |
+          python -m pip install --upgrade build
+          python -m build
+
+      - name: Verify the derived wheel version matches the tag
+        # setuptools_scm derives the version from the tag, so this normally matches by
+        # construction; it guards the build being exactly at a clean tag — a mismatch
+        # means a dirty tree, a dev/local suffix, missing tags, or the wrong ref.
+        env:
+          EXPECTED: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          wheels=(dist/msa_ranker-*-py3-none-any.whl)
+          if [[ ${#wheels[@]} -ne 1 ]]; then
+            echo "ERROR: expected exactly one wheel in dist/, found ${#wheels[@]}." >&2
+            ls -1 dist/ >&2
+            exit 1
+          fi
+          built=$(basename "${wheels[0]}")
+          built_ver=$(python -c "import sys, re; print(re.match(r'msa_ranker-(.+)-py3-none-any\.whl', sys.argv[1]).group(1))" "$built")
+          if [[ "$built_ver" != "$EXPECTED" ]]; then
+            echo "ERROR: setuptools_scm derived '$built_ver' but the tag normalizes to '$EXPECTED'." >&2
+            echo "The build must be exactly at the (clean) tag commit with tags fetched." >&2
+            exit 1
+          fi
+          echo "OK: derived wheel version msa_ranker-$built_ver matches tag $EXPECTED."
+
+      - name: Smoke-install the wheel and import the public API
+        env:
+          EXPECTED: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          # --no-deps verifies the wheel is self-contained. msa-ranker has zero
+          # runtime deps (pyproject `dependencies = []`); if runtime deps are ever
+          # added, switch to a plain `pip install` so missing deps fail here.
+          wheel=$(ls dist/msa_ranker-*-py3-none-any.whl)
+          python -m venv /tmp/wheeltest
+          /tmp/wheeltest/bin/pip install --no-deps "$wheel"
+          # Assert the in-package __version__ matches the tag too (not just the wheel
+          # metadata) so a stale hand-pinned __version__ can't ship unnoticed.
+          /tmp/wheeltest/bin/python - "$EXPECTED" <<'PY'
+          import sys
+          import msa_ranker
+          import msa_ranker.serving, msa_ranker.ledger, msa_ranker.features  # noqa: F401
+          expected = sys.argv[1]
+          assert msa_ranker.__version__ == expected, (
+              f"__version__ {msa_ranker.__version__!r} != tag {expected!r}"
+          )
+          print("import OK; __version__ =", msa_ranker.__version__)
+          PY
+          /tmp/wheeltest/bin/msa-ranker --help >/dev/null && echo "CLI OK"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub Release
+    needs: build
+    # Publish on the PRIVATE repos first (dev + staging, for review), then the
+    # public repo — so a tag can be exercised privately before anything is public.
+    # On any other repo this job is skipped (build-only validation).
+    # NOTE: kumraj/msa-ranker (the private dev repo) is included to exercise the
+    # publish path before the staging->public mirror is wired; drop it once the
+    # mirror flow is validated so dev tags only build.
+    if: >-
+      github.repository == 'kumraj/msa-ranker'
+      || github.repository == 'openara-ai/msa-ranker-public-staging'
+      || github.repository == 'openara-ai/msa-ranker'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # create the release + upload assets
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Verify the tag still points at the built commit
+        # Guards against a force-moved/recreated tag between build and publish:
+        # the release must describe the same source the artifacts were built from.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          BUILT_SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          set -euo pipefail
+          ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG")
+          obj_type=$(echo "$ref" | python -c "import sys,json; print(json.load(sys.stdin)['object']['type'])")
+          obj_sha=$(echo "$ref" | python -c "import sys,json; print(json.load(sys.stdin)['object']['sha'])")
+          # Annotated tags point at a tag object; dereference to its commit.
+          if [[ "$obj_type" == "tag" ]]; then
+            obj_sha=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$obj_sha" --jq '.object.sha')
+          fi
+          if [[ "$obj_sha" != "$BUILT_SHA" ]]; then
+            echo "ERROR: tag $TAG points at $obj_sha but artifacts were built from $BUILT_SHA." >&2
+            echo "Refusing to publish a release whose tag no longer matches its artifacts." >&2
+            exit 1
+          fi
+          echo "OK: tag $TAG points at the built commit $BUILT_SHA."
+
+      - name: Create / update the GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          prerelease_flag=""
+          if [[ "$PRERELEASE" == "true" ]]; then
+            prerelease_flag="--prerelease"
+          fi
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Re-publish: refresh assets only. NOTE: release NOTES are not regenerated
+            # on a re-run (gh release upload touches assets only).
+            echo "::notice::Release $TAG exists — re-uploading assets (--clobber); notes unchanged."
+            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            # --verify-tag: abort rather than silently create the tag from the default
+            # branch if it has disappeared. --generate-notes: notes from merged PRs
+            # (no CHANGELOG.md dependency on this branch).
+            gh release create "$TAG" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$TAG" \
+              --generate-notes \
+              --verify-tag \
+              $prerelease_flag
+          fi
+          echo "Published $GITHUB_REPOSITORY release $TAG."

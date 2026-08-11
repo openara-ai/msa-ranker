@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Product data lives OUTSIDE the repo (~/.msa-ranker/) — never commit the ledger or SoR
+# (INV-5). Belt-and-braces in case anything lands locally:
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+/ledger/

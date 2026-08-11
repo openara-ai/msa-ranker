@@ -1,0 +1,60 @@
+[build-system]
+# setuptools>=77 for PEP 639 SPDX `license = "MIT"` (supersedes main's >=64).
+requires = ["setuptools>=77", "setuptools_scm>=8", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "msa-ranker"
+# Version is DERIVED from the git tag (see [tool.setuptools_scm]); the tag is the
+# single source of truth (versioning-and-changelog standard §1). Not hand-pinned.
+dynamic = ["version"]
+description = "Learned (non-LLM) learning-to-rank reranker for media-search-agent"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
+# No runtime dependencies — pure-Python, stdlib only (ADR-003). The distributed
+# wheel bundles no third-party code, so there are no third-party license
+# obligations; MIT (LICENSE) covers the whole artifact.
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "black"]
+
+[project.scripts]
+msa-ranker = "msa_ranker.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+msa_ranker = ["migrations/*.sql"]
+
+[tool.setuptools_scm]
+# The git tag drives the version: tag `vX.Y.Z` -> wheel/sdist `X.Y.Z` (and
+# `vX.Y.Z-rc1` -> `X.Y.Zrc1`). No hand-maintained version string to drift
+# (versioning-and-changelog standard §1). `fallback_version` keeps non-tag builds
+# (shallow CI checkout, sdist without .git) from erroring — only a real tagged
+# build yields a real release version.
+fallback_version = "0.0.0"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+
+[tool.black]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

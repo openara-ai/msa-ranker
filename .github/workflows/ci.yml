@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: pip install -e ".[dev]"
+      - name: Lint (ruff — warnings = errors)
+        run: ruff check .
+      - name: Format check (black)
+        run: black --check .
+      - name: Rendered views up to date (regenerate-and-diff)
+        # Private-repo-only: the metrics sources and this script live under
+        # internal/ and are held back from the public openara mirror, so the
+        # step self-skips where they are absent (keeps the mirror's CI green).
+        if: ${{ hashFiles('internal/scripts/render_views.py') != '' }}
+        run: python internal/scripts/render_views.py --check
+      - name: Tests
+        run: pytest

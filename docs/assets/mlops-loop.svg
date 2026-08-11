@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 372" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="t">
+  <title id="t">The msa-ranker MLOps loop: MSA event ledger, ingest, label, freeze, measure baseline, then train, eval, register, deploy, serve; new interactions feed the next loop.</title>
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="8" refX="7.5" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="#6b7280"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="372" fill="#ffffff"/>
+
+  <!-- return loop: serve feeds the next iteration -->
+  <path d="M976,296 L992,296 L992,22 L20,22 L20,90 L36,90" fill="none" stroke="#9ca3af" stroke-width="1.75" stroke-dasharray="6 5" marker-end="url(#arrow)"/>
+  <text x="500" y="16" text-anchor="middle" font-size="12.5" font-style="italic" fill="#6b7280">new interactions feed the next loop</text>
+
+  <!-- row 1 -> row 2 wrap connector -->
+  <path d="M892,128 L892,190 L124,190 L124,250" fill="none" stroke="#6b7280" stroke-width="1.75" marker-end="url(#arrow)"/>
+
+  <!-- row 1: collect + prepare -->
+  <g stroke-width="1.5">
+    <rect x="40"  y="52" width="168" height="76" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+    <rect x="232" y="52" width="168" height="76" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+    <rect x="424" y="52" width="168" height="76" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+    <rect x="616" y="52" width="168" height="76" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+    <rect x="808" y="52" width="168" height="76" rx="10" fill="#fef3c7" stroke="#b45309"/>
+  </g>
+  <g text-anchor="middle" fill="#111827" font-size="15" font-weight="600">
+    <text x="124" y="82">MSA event ledger</text>
+    <text x="316" y="82">ingest</text>
+    <text x="508" y="82">label</text>
+    <text x="700" y="82">freeze</text>
+    <text x="892" y="76">measure baseline</text>
+  </g>
+  <g text-anchor="middle" fill="#374151" font-size="12">
+    <text x="124" y="104">JSONL, append-only</text>
+    <text x="316" y="104">into the training store</text>
+    <text x="508" y="104">Click &gt; Skip</text>
+    <text x="700" y="104">immutable snapshot</text>
+    <text x="892" y="96">NDCG@k / MRR,</text>
+    <text x="892" y="112">before any model</text>
+  </g>
+
+  <!-- row 1 arrows -->
+  <g stroke="#6b7280" stroke-width="1.75">
+    <line x1="210" y1="90" x2="228" y2="90" marker-end="url(#arrow)"/>
+    <line x1="402" y1="90" x2="420" y2="90" marker-end="url(#arrow)"/>
+    <line x1="594" y1="90" x2="612" y2="90" marker-end="url(#arrow)"/>
+    <line x1="786" y1="90" x2="804" y2="90" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- row 2: train + evaluate, then ship -->
+  <g stroke-width="1.5">
+    <rect x="40"  y="258" width="168" height="76" rx="10" fill="#fef3c7" stroke="#b45309"/>
+    <rect x="232" y="258" width="168" height="76" rx="10" fill="#fef3c7" stroke="#b45309"/>
+    <rect x="424" y="258" width="168" height="76" rx="10" fill="#fef3c7" stroke="#b45309"/>
+    <rect x="616" y="258" width="168" height="76" rx="10" fill="#dcfce7" stroke="#15803d"/>
+    <rect x="808" y="258" width="168" height="76" rx="10" fill="#dcfce7" stroke="#15803d"/>
+  </g>
+  <g text-anchor="middle" fill="#111827" font-size="15" font-weight="600">
+    <text x="124" y="288">train</text>
+    <text x="316" y="288">eval</text>
+    <text x="508" y="288">register</text>
+    <text x="700" y="288">deploy</text>
+    <text x="892" y="288">serve</text>
+  </g>
+  <g text-anchor="middle" fill="#374151" font-size="12">
+    <text x="124" y="310">learning-to-rank model</text>
+    <text x="316" y="310">vs. the baseline</text>
+    <text x="508" y="310">model + manifest</text>
+    <text x="700" y="310">gated copy</text>
+    <text x="892" y="310">in MSA, behind the flag</text>
+  </g>
+
+  <!-- row 2 arrows -->
+  <g stroke="#6b7280" stroke-width="1.75">
+    <line x1="210" y1="296" x2="228" y2="296" marker-end="url(#arrow)"/>
+    <line x1="402" y1="296" x2="420" y2="296" marker-end="url(#arrow)"/>
+    <line x1="594" y1="296" x2="612" y2="296" marker-end="url(#arrow)"/>
+    <line x1="786" y1="296" x2="804" y2="296" marker-end="url(#arrow)"/>
+  </g>
+
+  <!-- phase captions -->
+  <g font-size="11.5" fill="#6b7280" font-weight="600" letter-spacing="0.08em">
+    <text x="40" y="44">COLLECT + PREPARE</text>
+    <text x="808" y="44">TRAIN + EVALUATE</text>
+    <text x="616" y="250">SHIP</text>
+  </g>
+</svg>
