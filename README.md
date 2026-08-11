@@ -3,7 +3,13 @@
 A non-LLM supervised **learning-to-rank model** that reorders the
 [media-search-agent](https://github.com/openara-ai/media-search-agent) (MSA) app's
 search result set using features of each result + the query, trained on the user's own
-logged interactions, served inside MSA.
+logged interactions, served inside MSA. Developed using
+[Agentic Engineering](docs/agentic-development.md).
+
+📖 **The story:** every [openara.ai](https://github.com/openara-ai) project gets its
+build story on [The Agentic Notes](https://theagenticnotes.substack.com); the ranker's
+will follow once the loop closes on real usage. MSA's is
+[already up](https://theagenticnotes.substack.com/p/discovering-forgotten-moments).
 
 ## Why this exists
 
