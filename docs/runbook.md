@@ -12,7 +12,10 @@
   alongside `index/` — **not** `logs/`, which is disposable; spec 01).
 - Enough **labelled searches** have accrued (searches with at least one `open`). Below the
   floor, `train` refuses (no garbage model). Wait for soak if so.
-- `msa-ranker` installed (editable in dev: `pip install -e ".[dev]"`).
+- `msa-ranker` installed. Operators: `pip install` the released wheel from the GitHub
+  release assets — it ships the CLI and the serving library, no clone needed.
+  Developers: an editable install from a clone (`pip install -e ".[dev]"`); see
+  [Getting Started](getting-started.md).
 
 ## 1. Train (ingest → labels → baseline → train → eval → register)
 

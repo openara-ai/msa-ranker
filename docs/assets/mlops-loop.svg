@@ -33,7 +33,7 @@
   <g text-anchor="middle" fill="#374151" font-size="12">
     <text x="124" y="104">JSONL, append-only</text>
     <text x="316" y="104">into the training store</text>
-    <text x="508" y="104">Click &gt; Skip</text>
+    <text x="508" y="104">Click &gt; Skip-Above</text>
     <text x="700" y="104">immutable snapshot</text>
     <text x="892" y="96">NDCG@k / MRR,</text>
     <text x="892" y="112">before any model</text>

@@ -8,7 +8,7 @@ logged interactions, served inside MSA. Developed using
 
 📖 **The story:** every [openara.ai](https://github.com/openara-ai) project gets its
 build story on [The Agentic Notes](https://theagenticnotes.substack.com); the ranker's
-will follow once the loop closes on real usage. MSA's is
+story will follow once the loop closes on real usage. MSA's is
 [already up](https://theagenticnotes.substack.com/p/discovering-forgotten-moments).
 
 ## Why this exists
@@ -74,7 +74,7 @@ subcommands (`ingest`, `train`, `report`, `deploy`); the other stages run inside
 
 The loop is deliberately small and repeatable. MSA writes search-and-open events to a
 local append-only ledger. `msa-ranker` ingests them into its training store, derives
-Click > Skip labels, freezes an immutable dataset, and measures the existing heuristic
+Click > Skip-Above labels, freezes an immutable dataset, and measures the existing heuristic
 baseline. It then trains a model and evaluates it against that bar. Every trained
 model is registered with its manifest and metrics, failed experiments included; the
 deployment gate passes only models that beat the baseline, and the deployed model is
@@ -107,39 +107,32 @@ The public, SemVer-governed contract is `msa_ranker.serving` / `.ledger` / `.fea
 
 ## How MSA consumes it
 
-MSA imports `msa_ranker` as an optional dependency and turns it on through config.
-Current MSA already ships the integration: the rerank seam plus the
+MSA imports `msa_ranker` as an optional dependency and turns it on through config;
+MSA consumes the wheel (vendored during development, switching to a pinned
+release-asset URL once the first public release is promoted), and the same wheel
+ships the `msa-ranker` CLI, so operating the loop never requires this repo. Current MSA already ships the integration: the rerank seam plus the
 interaction-logging hooks (the `search_id` echo and `POST /track/open`) that produce
-the ledger. Full operator steps are in the [runbook](docs/runbook.md); the short
-version:
+the ledger.
 
-1. **Install**: during development MSA vendors the wheel (or uses an editable
-   install). Once the first release (v0.1) is tagged, MSA will pin the published
-   wheel as an optional dependency:
+The arrangement has four steps: MSA logs interactions to the local ledger
+(`ranker.event_logging`, on by default, `false` to collect nothing); you train
+offline with the CLI; a gate-passing model is deployed into MSA's
+`ranker.ltr_model_dir`; and one flag serves it:
 
-   ```text
-   # planned consumption path; the first public release is still pending
-   msa-ranker @ https://github.com/openara-ai/msa-ranker/releases/download/vX.Y.Z/msa_ranker-X.Y.Z-py3-none-any.whl
-   ```
+```yaml
+ranker:
+  enable_learning_to_rank: true   # master flag, default OFF (search byte-identical, INV-3)
+  ltr_model_dir: <deployed model dir>
+```
 
-2. **Log interactions**: `ranker.event_logging: true` (the default) makes MSA append the
-   search-and-open event ledger the loop trains on. Set it `false` to collect nothing.
-3. **Deploy a model**: after training, an operator runs `msa-ranker deploy` to copy a
-   gate-passing model + manifest into MSA's `ranker.ltr_model_dir`.
-4. **Enable serving**: in MSA's `config.yaml`:
-
-   ```yaml
-   ranker:
-     enable_learning_to_rank: true   # master flag, default OFF (search byte-identical, INV-3)
-     ltr_model_dir: <dir from step 3>
-   ```
-
-   On restart MSA gates and loads the model once. If the flag is off, the model is
-   missing, or the gate fails, MSA logs it and serves the heuristic unchanged; search
-   still starts.
-
-Flip `enable_learning_to_rank` back to `false` (or drop `ltr_model_dir`) and restart for an
+If the flag is off, the model is missing, or the load gate fails, MSA serves the
+heuristic unchanged and search still starts; flip the flag back and restart for an
 instant return to today's ordering.
+
+**Hands-on steps are documented in one place:** [Getting Started](docs/getting-started.md)
+covers both workflows (use a release with your MSA, or develop this package), and the
+[runbook](docs/runbook.md) owns the recurring operator loop (train → review → deploy
+→ enable → rollback).
 
 ## Layout
 
@@ -171,13 +164,9 @@ instant return to today's ordering.
 
 ## Dev
 
-New here? Start with the [Getting Started](docs/getting-started.md) guide. The short version:
-
-```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev]"
-ruff check . && black --check . && pytest
-```
+Working on the package itself? [Getting Started](docs/getting-started.md) covers the
+setup: clone, editable install, and the same fail-closed gates CI runs
+(`ruff` → `black --check` → `pytest`).
 
 ## Privacy
 
