@@ -19,22 +19,33 @@ model-compatibility check.
   here before cutting a release, then move them under a dated version heading.
 -->
 
+## [0.1.1] - 2026-08-10
+
+First public release. (`v0.1.0` was tagged on the private development repo as a
+release-path rehearsal and was never published; its planned content ships here.)
+
 ### Added
-<!-- Staged for v0.1.0: these entries move under `## [0.1.0] - <date>` at the cut. -->
+
 - First public release of the learned (non-LLM) learning-to-rank reranker for
   [media-search-agent](https://github.com/openara-ai/media-search-agent). Reorders
   MSA's existing candidate set behind a config flag, learning from logged
   interactions, with the existing heuristic as a deterministic fallback.
-- Importable serving library (`msa_ranker.serving`, `.ledger`, `.features`) —
+- Importable serving library (`msa_ranker.serving`, `.ledger`, `.features`):
   pure-Python, zero runtime dependencies, cross-platform (macOS/Linux/Windows).
-- `msa-ranker` CLI: `ingest`, `train`, `eval`/`report`, `deploy`.
+- `msa-ranker` CLI: `ingest`, `train`, `report`, `deploy` (evaluation runs inside
+  `train`).
+- Public documentation set: visitor-oriented README (the MLOps loop and a
+  before/after reranking example), a getting-started guide, an
+  agentic-development guide, and the public agent contract.
 
 ### Privacy
+
 - **Local interaction logging is ON by default when the package is installed and
   enabled by the host.** When MSA is configured to use the reranker, it appends an
-  **append-only local event ledger** (searches shown + opens) in MSA's own data area
-  — never transmitted off the machine, never committed to any repository. This is
-  what makes the reranker learn from your usage.
+  **append-only local event ledger** (searches shown + opens) in MSA's own data
+  area. The app never transmits the ledger anywhere and it is never committed to
+  any repository; copying it to a separate training machine is a manual operator
+  step. This is what makes the reranker learn from your usage.
 - **Off-switch:** set `ranker.event_logging: false` to disable all ledger writes
   ([ADR-014](docs/adrs.md#adr-014)). Logging failure never degrades MSA search or
   opens (fail-open).
