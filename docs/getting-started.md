@@ -22,13 +22,31 @@ serving).
 ### A. Operate: use a released ranker with your MSA install
 
 No clone needed: the released wheel ships both the serving library and the
-`msa-ranker` CLI. Install it from the GitHub release assets:
+`msa-ranker` CLI. Install it into a Python 3.11+ virtual environment. (macOS and
+Linux usually ship `python3` but no bare `pip`; creating and activating the venv is
+what puts `pip` and, after the install, `msa-ranker` on your PATH.)
+
+On macOS / Linux:
 
 ```bash
+python3 -m venv ranker-env && . ranker-env/bin/activate
 pip install https://github.com/openara-ai/msa-ranker/releases/download/v0.1.1/msa_ranker-0.1.1-py3-none-any.whl
+msa-ranker --help   # verify the install
+```
+
+On Windows (PowerShell):
+
+```powershell
+python -m venv ranker-env
+ranker-env\Scripts\Activate.ps1
+pip install https://github.com/openara-ai/msa-ranker/releases/download/v0.1.1/msa_ranker-0.1.1-py3-none-any.whl
+msa-ranker --help   # verify the install
 ```
 
 Or, from an already-downloaded file: `pip install ./msa_ranker-0.1.1-py3-none-any.whl`.
+Reactivate the venv in any new shell before running `msa-ranker` commands:
+`. ranker-env/bin/activate` on macOS/Linux, `ranker-env\Scripts\Activate.ps1` on
+Windows.
 
 With MSA logging interactions, follow the [runbook](runbook.md) for the recurring
 loop: train → review → deploy → enable → rollback.
